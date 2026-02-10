@@ -1,0 +1,27 @@
+Valve Specification – Summary Source Text
+
+System: Cooling Water
+Valve Tag: XV-2207
+Type: Butterfly valve, lug type
+Size: DN200
+Pressure Class: PN16
+Body Material: Ductile iron (EN-GJS-400)
+Disc Material: Stainless steel 316
+Seat: EPDM
+Actuator: Electric, 415VAC, fail-in-place
+Revision: B3
+
+Service conditions:
+- Fluid: cooling water (treated)
+- Temperature: 5°C to 35°C
+- Max differential pressure: 6 bar
+
+Approval requirements:
+- Materials engineer must confirm EPDM compatibility with treatment chemicals.
+- Electrical engineer must confirm actuator torque and power supply.
+- QA must confirm certificates (EN 10204 3.1) for wetted parts.
+
+Notes:
+- Valve must be compatible with existing flange drilling pattern.
+- Provide limit switches (open/close) and local position indicator.
+

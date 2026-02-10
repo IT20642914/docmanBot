@@ -7,5 +7,9 @@
             ],
             "schema": {}
         }
-    ]
+    ],
+    "files.associations": {
+        ".localConfigs": "dotenv",
+        ".localConfigs.playground": "dotenv"
+    }
 }

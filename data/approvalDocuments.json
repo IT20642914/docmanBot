@@ -1,0 +1,31 @@
+{
+  "pending": [
+    {
+      "id": "DOC-001",
+      "title": "Pump Layout Drawing",
+      "fileName": "Pump Layout (01-TEST - 1028340 - 1 - A1) - 1.docx",
+      "localPath": "data/docs/DOC-001.txt",
+      "docClass": "01-TEST",
+      "docNo": "1028340",
+      "docSheet": "1",
+      "docRev": "A1",
+      "source": "IFS",
+      "submittedBy": "John Doe",
+      "submittedAt": "2026-02-10T09:12:00Z"
+    },
+    {
+      "id": "DOC-002",
+      "title": "Valve Specification",
+      "fileName": "Valve Spec (01-TEST - 5550101 - 2 - B3) - 1.docx",
+      "localPath": "data/docs/DOC-002.txt",
+      "docClass": "01-TEST",
+      "docNo": "5550101",
+      "docSheet": "2",
+      "docRev": "B3",
+      "source": "IFS",
+      "submittedBy": "Jane Smith",
+      "submittedAt": "2026-02-10T10:05:00Z"
+    }
+  ]
+}
+

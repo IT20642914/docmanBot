@@ -1,0 +1,22 @@
+Pump Layout Drawing – Summary Source Text
+
+Project: TEST Pump Station Upgrade
+Document Type: Layout Drawing (Concept)
+Equipment: Pump P-102 (Duty/Standby)
+Revision: A1
+
+Key notes:
+- The pump skid is located in Bay 2, north wall, with 1.2m clearance for maintenance.
+- Suction line is DN150 with isolation valve V-1501.
+- Discharge line is DN125 with check valve CV-1201 and flow meter FM-1201.
+- Instrumentation includes PT-1001 (suction pressure) and PT-1002 (discharge pressure).
+
+Approval requirements:
+- Mechanical lead must verify clearance and lifting path.
+- Process engineer must confirm line sizes DN150/DN125 are correct for design flow.
+- Electrical engineer must confirm motor starter location and cable routing.
+
+Open issues:
+- Confirm final pump model and motor power rating.
+- Confirm foundation bolt pattern with vendor.
+
