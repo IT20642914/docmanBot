@@ -8,6 +8,8 @@ export interface PendingApprovalDocument {
   fileName: string;
   /** Relative path (recommended) or absolute path to local text content */
   localPath?: string;
+  /** Document/file type, e.g. PDF, DOCX, XLSX, XLSB, TXT */
+  docType?: string;
   docClass?: string;
   docNo?: string;
   docSheet?: string;
@@ -24,6 +26,18 @@ interface ApprovalDocumentsJson {
   documents?: PendingApprovalDocument[];
   // legacy format
   pending?: PendingApprovalDocument[];
+}
+
+function inferDocType(doc: PendingApprovalDocument): string | undefined {
+  const name = String(doc.localPath || doc.fileName || "").toLowerCase();
+  if (name.endsWith(".pdf")) return "PDF";
+  if (name.endsWith(".docx")) return "DOCX";
+  if (name.endsWith(".xlsx")) return "XLSX";
+  if (name.endsWith(".xlsb")) return "XLSB";
+  if (name.endsWith(".xls")) return "XLS";
+  if (name.endsWith(".txt")) return "TXT";
+  if (name.endsWith(".md")) return "MD";
+  return undefined;
 }
 
 function getCandidatePaths(): string[] {
@@ -70,11 +84,16 @@ export async function getAllDocuments(): Promise<PendingApprovalDocument[]> {
       const parsed = JSON.parse(raw) as ApprovalDocumentsJson;
       if (!parsed) return [];
 
-      if (Array.isArray(parsed.documents)) return parsed.documents;
+      if (Array.isArray(parsed.documents))
+        return parsed.documents.map((d) => ({ ...d, docType: d.docType ?? inferDocType(d) }));
 
       // Legacy: "pending" array -> convert to documents with state pendingApproval
       if (Array.isArray(parsed.pending)) {
-        return parsed.pending.map((d) => ({ ...d, state: d.state ?? "pendingApproval" }));
+        return parsed.pending.map((d) => ({
+          ...d,
+          state: d.state ?? "pendingApproval",
+          docType: d.docType ?? inferDocType(d),
+        }));
       }
       return [];
     } catch (err) {

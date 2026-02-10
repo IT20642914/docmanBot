@@ -22,11 +22,14 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
   // PDF
   if (ext === ".pdf") {
     try {
-      const pdfParseMod: any = await import("pdf-parse");
-      const pdfParse = pdfParseMod?.default ?? pdfParseMod;
       const buf = await readFile(filePath);
-      const parsed = await pdfParse(buf);
-      return clampText(String(parsed?.text ?? ""), 12000);
+      const pdfMod: any = await import("pdf-parse");
+      const PDFParse = pdfMod?.PDFParse;
+      if (!PDFParse) return "";
+      const parser = new PDFParse({ data: buf });
+      const result = await parser.getText();
+      await parser.destroy().catch(() => {});
+      return clampText(String(result?.text ?? ""), 12000);
     } catch {
       return "";
     }

@@ -159,6 +159,7 @@ export function buildPendingApprovalsListCard(input: { docs: PendingApprovalDocu
             d.docClass && d.docNo && d.docSheet && d.docRev
               ? `${d.docClass} - ${d.docNo} - ${d.docSheet} - ${d.docRev}`
               : undefined;
+          const typeLine = d.docType ? `Type: ${d.docType}` : undefined;
 
           return {
             type: "Container",
@@ -166,6 +167,9 @@ export function buildPendingApprovalsListCard(input: { docs: PendingApprovalDocu
             spacing: "Small",
             items: [
               { type: "TextBlock", text: d.title || d.fileName || d.id, wrap: true, weight: "Bolder" },
+              ...(typeLine
+                ? [{ type: "TextBlock", text: typeLine, wrap: true, isSubtle: true, spacing: "None" }]
+                : []),
               ...(meta ? [{ type: "TextBlock", text: meta, wrap: true, isSubtle: true, spacing: "None" }] : []),
               ...(d.submittedBy
                 ? [{ type: "TextBlock", text: `Submitted by: ${d.submittedBy}`, wrap: true, isSubtle: true, spacing: "None" }]
@@ -258,6 +262,7 @@ export function buildDocSummaryAndQuestionCard(input: {
       { type: "TextBlock", text: "Document summary", weight: "Bolder", size: "Large" },
       kv("ID", d.id),
       kv("Title", d.title || "-"),
+      ...(d.docType ? [kv("Type", d.docType)] : []),
       ...(meta ? [kv("Metadata", meta)] : []),
       { type: "TextBlock", text: input.summary || "(No summary)", wrap: true, spacing: "Medium" },
       { type: "TextBlock", text: "Ask a question about this document:", weight: "Bolder", spacing: "Medium" },
@@ -306,6 +311,7 @@ export function buildDocAnswerCard(input: {
     body: [
       { type: "TextBlock", text: "Answer from document", weight: "Bolder", size: "Large" },
       kv("Document", d.title || d.id),
+      ...(d.docType ? [kv("Type", d.docType)] : []),
       { type: "TextBlock", text: `Q: ${input.question}`, wrap: true, weight: "Bolder", spacing: "Medium" },
       { type: "TextBlock", text: input.answer || "(No answer)", wrap: true, spacing: "Small" },
       { type: "TextBlock", text: "Ask another question:", weight: "Bolder", spacing: "Medium" },
