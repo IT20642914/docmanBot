@@ -16,7 +16,7 @@ deploy:
     with:
       args: install --no-audit
 
-  # Generate runtime environment variables
+  # Generate runtime environment variables (incl. bot credentials for sending replies)
   - uses: file/createOrUpdateEnvironmentFile
     with:
       target: ./.localConfigs.playground

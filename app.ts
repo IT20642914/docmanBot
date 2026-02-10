@@ -1,8 +1,9 @@
-import { stripMentionsText, TokenCredentials } from "@microsoft/teams.api";
+import { TokenCredentials } from "@microsoft/teams.api";
 import { App } from "@microsoft/teams.apps";
 import { LocalStorage } from "@microsoft/teams.common";
 import config from "./config";
 import { ManagedIdentityCredential } from "@azure/identity";
+import { registerMessageRoutes } from "./services/messageRoutes";
 
 // Create storage for conversation history
 const storage = new LocalStorage();
@@ -36,60 +37,6 @@ const app = new App({
   storage,
 });
 
-// Interface for conversation state
-interface ConversationState {
-  count: number;
-}
-
-const getConversationState = (conversationId: string): ConversationState => {
-  let state = storage.get(conversationId);
-  if (!state) {
-    state = { count: 0 };
-    storage.set(conversationId, state);
-  }
-  return state;
-};
-
-app.on("message", async (context) => {
-  const activity = context.activity;
-  const text: string = stripMentionsText(activity);
-
-  if (text === "/reset") {
-    storage.delete(activity.conversation.id);
-    await context.send("Ok I've deleted the current conversation state.");
-    return;
-  }
-
-  if (text === "/count") {
-    const state = getConversationState(activity.conversation.id);
-    await context.send(`The count is ${state.count}`);
-    return;
-  }
-
-  if (text === "/diag") {
-    await context.send(JSON.stringify(activity));
-    return;
-  }
-
-  if (text === "/state") {
-    const state = getConversationState(activity.conversation.id);
-    await context.send(JSON.stringify(state));
-    return;
-  }
-
-  if (text === "/runtime") {
-    const runtime = {
-      nodeversion: process.version,
-      sdkversion: "2.0.0", // Microsoft Teams SDK
-    };
-    await context.send(JSON.stringify(runtime));
-    return;
-  }
-
-  // Default echo behavior
-  const state = getConversationState(activity.conversation.id);
-  state.count++;
-  await context.send(`[${state.count}] you said: ${text}`);
-});
+registerMessageRoutes(app, storage);
 
 export default app;
