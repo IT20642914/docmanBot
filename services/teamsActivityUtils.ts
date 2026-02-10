@@ -1,6 +1,46 @@
 export const FILE_DOWNLOAD_INFO_TYPE =
   "application/vnd.microsoft.teams.file.download.info";
 
+/**
+ * Content object shape for attachment.content when contentType is
+ * application/vnd.microsoft.teams.file.download.info.
+ * You do NOT receive file bytes in the activity — use downloadUrl to fetch content.
+ */
+export interface FileDownloadInfoContent {
+  /** URL to GET the file bytes (may require Bot token in Authorization header in some cases) */
+  downloadUrl?: string;
+  /** OneDrive drive item ID */
+  uniqueId?: string;
+  /** File extension / type (e.g. "docx", "txt") */
+  fileType?: string;
+  etag?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Returns the file-download info content object when the attachment is
+ * application/vnd.microsoft.teams.file.download.info. Use content.downloadUrl
+ * to download the actual file bytes (GET request; use bot token if required).
+ */
+export function getFileDownloadInfoContent(attachment: any): FileDownloadInfoContent | null {
+  if (!attachment) return null;
+  if (String(attachment?.contentType ?? "").toLowerCase() !== FILE_DOWNLOAD_INFO_TYPE)
+    return null;
+  const content = attachment.content;
+  if (!content || typeof content !== "object") return null;
+  return content as FileDownloadInfoContent;
+}
+
+/**
+ * Returns the download URL for a file attachment if present.
+ * Use this URL with HTTP GET to fetch file bytes (add Bot token if the host requires auth).
+ */
+export function getAttachmentDownloadUrl(attachment: any): string | null {
+  const info = getFileDownloadInfoContent(attachment);
+  if (!info?.downloadUrl || typeof info.downloadUrl !== "string") return null;
+  return info.downloadUrl.trim() || null;
+}
+
 export function decodeHtmlEntities(input: string): string {
   return input
     .replaceAll("&nbsp;", " ")
