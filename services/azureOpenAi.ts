@@ -13,11 +13,14 @@ export interface AzureOpenAiConfig {
 }
 
 export function getAzureOpenAiConfigFromEnv(): AzureOpenAiConfig | null {
-  const endpoint = String(process.env.AZURE_OPENAI_ENDPOINT ?? "https://ai-anis5304ai744397091529.cognitiveservices.azure.com/").trim();
-  const apiKey = String(process.env.AZURE_OPENAI_API_KEY ?? "BuEaamvBcxruTHQCwjM3yaA4waFvvZdKiyVrfmVsh5kIWM9wdtGHJQQJ99AKACfhMk5XJ3w3AAAAACOG3dhV").trim();
-  const deployment = String(process.env.AZURE_OPENAI_DEPLOYMENT ?? "gpt-5.2-chat-2").trim();
+  const endpoint = String(process.env.AZURE_OPENAI_ENDPOINT ?? "")
+    .trim()
+    .replace(/[;]+$/g, "")
+    .trim();
+  const apiKey = String(process.env.AZURE_OPENAI_API_KEY ?? "").trim();
+  const deployment = String(process.env.AZURE_OPENAI_DEPLOYMENT ?? "").trim();
   const apiVersion = String(process.env.AZURE_OPENAI_API_VERSION ?? "2024-04-01-preview").trim();
-  const model = String(process.env.AZURE_OPENAI_MODEL ?? "gpt-5.2-chat").trim() || deployment;
+  const model = String(process.env.AZURE_OPENAI_MODEL ?? "").trim() || deployment;
   if (!endpoint || !apiKey || !deployment) return null;
   return { endpoint: endpoint.replace(/\/+$/, ""), apiKey, deployment, apiVersion, model };
 }

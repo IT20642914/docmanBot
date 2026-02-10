@@ -276,6 +276,16 @@ export function buildDocSummaryAndQuestionCard(input: {
       },
       {
         type: "Action.Submit",
+        title: "Approve",
+        data: { action: "approve_doc", docId: d.id },
+      },
+      {
+        type: "Action.Submit",
+        title: "Reject",
+        data: { action: "reject_doc", docId: d.id },
+      },
+      {
+        type: "Action.Submit",
         title: "Back to list",
         data: { action: "show_pending_approvals" },
       },
@@ -311,6 +321,16 @@ export function buildDocAnswerCard(input: {
         type: "Action.Submit",
         title: "Ask",
         data: { action: "ask_doc_question", docId: d.id },
+      },
+      {
+        type: "Action.Submit",
+        title: "Approve",
+        data: { action: "approve_doc", docId: d.id },
+      },
+      {
+        type: "Action.Submit",
+        title: "Reject",
+        data: { action: "reject_doc", docId: d.id },
       },
       {
         type: "Action.Submit",

@@ -16,6 +16,7 @@ import {
   getDocumentText,
   getPendingApprovalDocumentById,
   getPendingApprovalDocuments,
+  setDocumentState,
 } from "./documentStore";
 import { answerQuestionFromDocument, summarizeDocumentText } from "./azureOpenAi";
 
@@ -101,12 +102,40 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
     }
     if (submittedAction === "approve_doc") {
       const docId = String(activity?.value?.docId ?? "").trim();
-      await ctx.send(`Approved: ${docId}`);
+      const ok = await setDocumentState(docId, "approved");
+      if (!ok) {
+        await ctx.send("I couldn’t update the document state.");
+        return;
+      }
+      const docs = await getPendingApprovalDocuments();
+      await ctx.send({
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: buildPendingApprovalsListCard({ docs }),
+          },
+        ],
+      });
       return;
     }
     if (submittedAction === "reject_doc") {
       const docId = String(activity?.value?.docId ?? "").trim();
-      await ctx.send(`Rejected: ${docId}`);
+      const ok = await setDocumentState(docId, "rejected");
+      if (!ok) {
+        await ctx.send("I couldn’t update the document state.");
+        return;
+      }
+      const docs = await getPendingApprovalDocuments();
+      await ctx.send({
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: buildPendingApprovalsListCard({ docs }),
+          },
+        ],
+      });
       return;
     }
     if (submittedAction === "dismiss_pending_approvals") {

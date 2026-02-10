@@ -9,7 +9,7 @@
         "dev:teamsfx": "env-cmd --silent -f .localConfigs npm run dev",
         "dev:teamsfx:testtool": "env-cmd --silent -f .localConfigs.playground npm run dev",
         "dev:teamsfx:launch-testtool": "env-cmd --silent -f env/.env.playground agentsplayground start",
-        "dev": "nodemon --exec node --inspect=9239 --signal SIGINT -r ts-node/register ./index.ts",
+        "dev": "nodemon --config nodemon.json --exec node --inspect=9239 --signal SIGINT -r ts-node/register ./index.ts",
         "build": "tsc --build",
         "start": "node ./lib/index.js",
         "watch": "nodemon --exec \"npm run start\"",
@@ -23,7 +23,10 @@
         "@azure/identity": "^4.11.1",
         "@microsoft/teams.apps": "^2.0.0",
         "@microsoft/teams.common": "^2.0.0",
-        "openai": "^6.19.0"
+        "mammoth": "^1.11.0",
+        "openai": "^6.19.0",
+        "pdf-parse": "^2.4.5",
+        "xlsx": "^0.18.5"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",

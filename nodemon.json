@@ -1,0 +1,5 @@
+{
+  "watch": ["**/*.ts", "package.json", "tsconfig.json"],
+  "ignore": ["lib/**", "data/**", "node_modules/**", ".localConfigs", ".localConfigs.playground", "env/**"]
+}
+

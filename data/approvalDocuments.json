@@ -1,5 +1,5 @@
 {
-  "pending": [
+  "documents": [
     {
       "id": "DOC-001",
       "title": "Pump Layout Drawing",
@@ -10,6 +10,7 @@
       "docSheet": "1",
       "docRev": "A1",
       "source": "IFS",
+      "state": "rejected",
       "submittedBy": "John Doe",
       "submittedAt": "2026-02-10T09:12:00Z"
     },
@@ -23,9 +24,39 @@
       "docSheet": "2",
       "docRev": "B3",
       "source": "IFS",
+      "state": "pendingApproval",
       "submittedBy": "Jane Smith",
       "submittedAt": "2026-02-10T10:05:00Z"
+    },
+    {
+      "id": "DOC-003",
+      "title": "1033608-A1",
+      "fileName": "1033608-A1.docx",
+      "localPath": "data/docs/1033608-A1.docx",
+      "source": "Local",
+      "state": "pendingApproval",
+      "submittedBy": "Local Upload",
+      "submittedAt": "2026-02-10T12:00:00Z"
+    },
+    {
+      "id": "DOC-004",
+      "title": "1033609-A2",
+      "fileName": "1033609-A2.pdf",
+      "localPath": "data/docs/1033609-A2.pdf",
+      "source": "Local",
+      "state": "pendingApproval",
+      "submittedBy": "Local Upload",
+      "submittedAt": "2026-02-10T12:00:00Z"
+    },
+    {
+      "id": "DOC-005",
+      "title": "1033455 xl",
+      "fileName": "1033455.xlsx",
+      "localPath": "data/docs/1033455.xlsx",
+      "source": "Local",
+      "state": "approved",
+      "submittedBy": "Local Upload",
+      "submittedAt": "2026-02-10T12:00:00Z"
     }
   ]
 }
-

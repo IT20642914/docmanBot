@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { extractTextFromFile } from "./documentTextExtractor";
 
 export interface PendingApprovalDocument {
   id: string;
@@ -12,12 +13,17 @@ export interface PendingApprovalDocument {
   docSheet?: string;
   docRev?: string;
   source?: string;
+  /** Workflow state */
+  state?: "pendingApproval" | "approved" | "rejected" | "pendigApprovel";
   submittedBy?: string;
   submittedAt?: string;
 }
 
 interface ApprovalDocumentsJson {
-  pending: PendingApprovalDocument[];
+  // new format
+  documents?: PendingApprovalDocument[];
+  // legacy format
+  pending?: PendingApprovalDocument[];
 }
 
 function getCandidatePaths(): string[] {
@@ -35,7 +41,26 @@ function getCandidatePaths(): string[] {
   return [fromCwd, fromRepoRootRelative, fromLib];
 }
 
-export async function getPendingApprovalDocuments(): Promise<PendingApprovalDocument[]> {
+async function tryReadJsonFile(p: string): Promise<ApprovalDocumentsJson | null> {
+  try {
+    const raw = await readFile(p, "utf8");
+    return JSON.parse(raw) as ApprovalDocumentsJson;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveDocumentsFilePath(): Promise<string> {
+  const candidates = getCandidatePaths();
+  for (const p of candidates) {
+    const parsed = await tryReadJsonFile(p);
+    if (parsed) return p;
+  }
+  // default to cwd location if none exist
+  return candidates[0];
+}
+
+export async function getAllDocuments(): Promise<PendingApprovalDocument[]> {
   const candidates = getCandidatePaths();
   let lastErr: unknown;
 
@@ -43,8 +68,15 @@ export async function getPendingApprovalDocuments(): Promise<PendingApprovalDocu
     try {
       const raw = await readFile(p, "utf8");
       const parsed = JSON.parse(raw) as ApprovalDocumentsJson;
-      if (!parsed || !Array.isArray(parsed.pending)) return [];
-      return parsed.pending;
+      if (!parsed) return [];
+
+      if (Array.isArray(parsed.documents)) return parsed.documents;
+
+      // Legacy: "pending" array -> convert to documents with state pendingApproval
+      if (Array.isArray(parsed.pending)) {
+        return parsed.pending.map((d) => ({ ...d, state: d.state ?? "pendingApproval" }));
+      }
+      return [];
     } catch (err) {
       lastErr = err;
     }
@@ -55,11 +87,19 @@ export async function getPendingApprovalDocuments(): Promise<PendingApprovalDocu
   return [];
 }
 
+export async function getPendingApprovalDocuments(): Promise<PendingApprovalDocument[]> {
+  const docs = await getAllDocuments();
+  return docs.filter((d) => {
+    const s = String(d.state ?? "pendingApproval");
+    return s === "pendingApproval" || s === "pendigApprovel";
+  });
+}
+
 export async function getPendingApprovalDocumentById(
   id: string
 ): Promise<PendingApprovalDocument | null> {
   if (!id) return null;
-  const docs = await getPendingApprovalDocuments();
+  const docs = await getAllDocuments();
   return docs.find((d) => d.id === id) ?? null;
 }
 
@@ -86,11 +126,34 @@ export async function getDocumentText(doc: PendingApprovalDocument): Promise<str
 
   for (const p of candidates) {
     try {
-      return await readFile(p, "utf8");
+      return await extractTextFromFile(p);
     } catch {
       // try next candidate
     }
   }
   return "";
+}
+
+export async function setDocumentState(
+  id: string,
+  state: "pendingApproval" | "approved" | "rejected"
+): Promise<boolean> {
+  if (!id) return false;
+  try {
+    const filePath = await resolveDocumentsFilePath();
+    const docs = await getAllDocuments();
+    const idx = docs.findIndex((d) => d.id === id);
+    if (idx < 0) return false;
+
+    docs[idx] = { ...docs[idx], state };
+
+    // Ensure directory exists
+    await mkdir(path.dirname(filePath), { recursive: true }).catch(() => {});
+    const out: ApprovalDocumentsJson = { documents: docs };
+    await writeFile(filePath, JSON.stringify(out, null, 2) + "\n", "utf8");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
