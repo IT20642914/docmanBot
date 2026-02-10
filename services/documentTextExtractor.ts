@@ -69,7 +69,92 @@ export async function extractTextFromFile(filePath: string): Promise<string> {
     }
   }
 
+  // PowerPoint: pptx (zip) - extract text from slide XML
+  if (ext === ".pptx") {
+    try {
+      const JSZipMod: any = await import("jszip");
+      const JSZip = JSZipMod?.default ?? JSZipMod;
+      const buf = await readFile(filePath);
+      const zip = await JSZip.loadAsync(buf);
+
+      const slidePaths = Object.keys(zip.files)
+        .filter((p) => /^ppt\/slides\/slide\d+\.xml$/i.test(p))
+        .sort((a, b) => {
+          const na = Number(a.match(/slide(\d+)\.xml/i)?.[1] ?? 0);
+          const nb = Number(b.match(/slide(\d+)\.xml/i)?.[1] ?? 0);
+          return na - nb;
+        });
+
+      const out: string[] = [];
+      for (const sp of slidePaths.slice(0, 30)) {
+        const xml = await zip.file(sp)?.async("string");
+        if (!xml) continue;
+        // Extract <a:t>Text</a:t> nodes
+        const texts = [...xml.matchAll(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi)]
+          .map((m) => String(m[1] ?? "").replace(/\s+/g, " ").trim())
+          .filter(Boolean);
+        if (texts.length > 0) out.push(`Slide ${out.length + 1}: ${texts.join(" ")}`);
+      }
+
+      return clampText(out.join("\n"), 12000);
+    } catch {
+      return "";
+    }
+  }
+
+  // Legacy .ppt is binary; not supported without specialized parser/OCR.
+  if (ext === ".ppt") return "";
+
   // Unknown/binary
   return "";
+}
+
+function mimeFromExt(ext: string): string | null {
+  const e = ext.toLowerCase();
+  if (e === ".png") return "image/png";
+  if (e === ".jpg" || e === ".jpeg") return "image/jpeg";
+  if (e === ".webp") return "image/webp";
+  return null;
+}
+
+export async function extractImagesFromPptx(filePath: string): Promise<string[]> {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== ".pptx") return [];
+
+  try {
+    const JSZipMod: any = await import("jszip");
+    const JSZip = JSZipMod?.default ?? JSZipMod;
+    const buf = await readFile(filePath);
+    const zip = await JSZip.loadAsync(buf);
+
+    const allFiles = Object.keys(zip.files);
+
+    // Prefer the thumbnail if present (often a rendered slide preview)
+    const thumb = allFiles.find((p) => /^docProps\/thumbnail\.(jpe?g|png|webp)$/i.test(p));
+
+    const mediaPaths = allFiles
+      .filter((p) => /^ppt\/media\//i.test(p))
+      .filter((p) => Boolean(mimeFromExt(path.extname(p))));
+
+    const pick = [
+      ...(thumb ? [thumb] : []),
+      ...mediaPaths,
+    ]
+      .filter(Boolean)
+      .slice(0, 4); // limit images to avoid huge prompts
+
+    const out: string[] = [];
+    for (const mp of pick) {
+      const mime = mimeFromExt(path.extname(mp));
+      if (!mime) continue;
+      const file = zip.file(mp);
+      if (!file) continue;
+      const b64 = await file.async("base64");
+      out.push(`data:${mime};base64,${b64}`);
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 

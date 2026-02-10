@@ -52,7 +52,13 @@ async function getSdkClient(cfg: AzureOpenAiConfig) {
   return _clientPromise;
 }
 
-async function chatComplete(cfg: AzureOpenAiConfig, messages: Array<{ role: string; content: string }>, maxTokens: number) {
+type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+type ChatMessage = { role: string; content: string | ChatContentPart[] };
+
+async function chatComplete(cfg: AzureOpenAiConfig, messages: ChatMessage[], maxTokens: number) {
   const client = await getSdkClient(cfg);
   const resp = await client.chat.completions.create({
     messages,
@@ -66,7 +72,7 @@ async function chatComplete(cfg: AzureOpenAiConfig, messages: Array<{ role: stri
   return content.trim();
 }
 
-export async function summarizeDocumentText(docText: string): Promise<string> {
+export async function summarizeDocumentText(docText: string, imageDataUrls: string[] = []): Promise<string> {
   await loadEnvFromLocalFilesIfMissing([
     "AZURE_OPENAI_ENDPOINT",
     "AZURE_OPENAI_API_KEY",
@@ -80,6 +86,19 @@ export async function summarizeDocumentText(docText: string): Promise<string> {
   }
 
   const safeText = clampText(docText, 12000);
+  const userParts: ChatContentPart[] = [
+    {
+      type: "text",
+      text:
+        `Summarize this document.\n` +
+        `- If images are attached, extract key milestones/dates/phases from the images.\n` +
+        `- If the text is sparse (e.g. a slide title), rely on the images.\n\n` +
+        `Content:\n\n${safeText}`,
+    },
+  ];
+  for (const url of (imageDataUrls ?? []).slice(0, 4)) {
+    userParts.push({ type: "image_url", image_url: { url } });
+  }
   return await chatComplete(
     cfg,
     [
@@ -88,13 +107,17 @@ export async function summarizeDocumentText(docText: string): Promise<string> {
         content:
           "You summarize engineering documents for approval. Output concise bullet points, then a short 'Approval checklist' section.",
       },
-      { role: "user", content: `Summarize this document:\n\n${safeText}` },
+      { role: "user", content: userParts },
     ],
     600
   );
 }
 
-export async function answerQuestionFromDocument(docText: string, question: string): Promise<string> {
+export async function answerQuestionFromDocument(
+  docText: string,
+  question: string,
+  imageDataUrls: string[] = []
+): Promise<string> {
   await loadEnvFromLocalFilesIfMissing([
     "AZURE_OPENAI_ENDPOINT",
     "AZURE_OPENAI_API_KEY",
@@ -109,6 +132,18 @@ export async function answerQuestionFromDocument(docText: string, question: stri
 
   const safeText = clampText(docText, 12000);
   const safeQ = clampText(question, 800);
+  const userParts: ChatContentPart[] = [
+    {
+      type: "text",
+      text:
+        `Answer using the provided document content.\n` +
+        `If images are attached, use them as part of the source.\n\n` +
+        `Document text:\n\n${safeText}\n\nQuestion: ${safeQ}`,
+    },
+  ];
+  for (const url of (imageDataUrls ?? []).slice(0, 4)) {
+    userParts.push({ type: "image_url", image_url: { url } });
+  }
   return await chatComplete(
     cfg,
     [
@@ -117,7 +152,7 @@ export async function answerQuestionFromDocument(docText: string, question: stri
         content:
           "Answer ONLY from the provided document text. If the answer is not in the document, say: 'Not found in the document.' Keep it short and precise.",
       },
-      { role: "user", content: `Document:\n\n${safeText}\n\nQuestion: ${safeQ}` },
+      { role: "user", content: userParts },
     ],
     700
   );

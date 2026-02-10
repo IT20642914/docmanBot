@@ -14,6 +14,7 @@ import {
 } from "./adaptiveCards";
 import {
   getDocumentText,
+  getDocumentImages,
   getPendingApprovalDocumentById,
   getPendingApprovalDocuments,
   setDocumentState,
@@ -52,7 +53,8 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         await ctx.send("I couldn't read the local document text for this item.");
         return;
       }
-      const summary = await summarizeDocumentText(docText).catch((e: any) => {
+      const images = await getDocumentImages(doc);
+      const summary = await summarizeDocumentText(docText, images).catch((e: any) => {
         return `Failed to summarize: ${String(e?.message ?? e)}`;
       });
       await ctx.send({
@@ -84,8 +86,9 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         await ctx.send("I couldn't read the local document text for this item.");
         return;
       }
+      const images = await getDocumentImages(doc);
 
-      const answer = await answerQuestionFromDocument(docText, question).catch((e: any) => {
+      const answer = await answerQuestionFromDocument(docText, question, images).catch((e: any) => {
         return `Failed to answer: ${String(e?.message ?? e)}`;
       });
 

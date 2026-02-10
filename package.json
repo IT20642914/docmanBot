@@ -23,6 +23,7 @@
         "@azure/identity": "^4.11.1",
         "@microsoft/teams.apps": "^2.0.0",
         "@microsoft/teams.common": "^2.0.0",
+        "jszip": "^3.10.1",
         "mammoth": "^1.11.0",
         "openai": "^6.19.0",
         "pdf-parse": "^2.4.5",

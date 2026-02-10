@@ -11,7 +11,7 @@
       "docSheet": "1",
       "docRev": "A1",
       "source": "IFS",
-      "state": "rejected",
+      "state": "pendingApproval",
       "submittedBy": "John Doe",
       "submittedAt": "2026-02-10T09:12:00Z"
     },
@@ -26,7 +26,7 @@
       "docSheet": "2",
       "docRev": "B3",
       "source": "IFS",
-      "state": "rejected",
+      "state": "pendingApproval",
       "submittedBy": "Jane Smith",
       "submittedAt": "2026-02-10T10:05:00Z"
     },
@@ -59,7 +59,18 @@
       "localPath": "data/docs/1033455.xlsx",
       "docType": "XLSX",
       "source": "Local",
-      "state": "approved",
+      "state": "pendingApproval",
+      "submittedBy": "Local Upload",
+      "submittedAt": "2026-02-10T12:00:00Z"
+    },
+    {
+      "id": "DOC-006",
+      "title": "Project Timeline 1077884",
+      "fileName": "Project_Timeline_1077884 1.pptx",
+      "localPath": "data/docs/Project_Timeline_1077884 1.pptx",
+      "docType": "PPTX",
+      "source": "Local",
+      "state": "pendingApproval",
       "submittedBy": "Local Upload",
       "submittedAt": "2026-02-10T12:00:00Z"
     }

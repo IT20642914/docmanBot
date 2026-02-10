@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { extractTextFromFile } from "./documentTextExtractor";
+import { extractImagesFromPptx, extractTextFromFile } from "./documentTextExtractor";
 
 export interface PendingApprovalDocument {
   id: string;
@@ -35,6 +35,8 @@ function inferDocType(doc: PendingApprovalDocument): string | undefined {
   if (name.endsWith(".xlsx")) return "XLSX";
   if (name.endsWith(".xlsb")) return "XLSB";
   if (name.endsWith(".xls")) return "XLS";
+  if (name.endsWith(".pptx")) return "PPTX";
+  if (name.endsWith(".ppt")) return "PPT";
   if (name.endsWith(".txt")) return "TXT";
   if (name.endsWith(".md")) return "MD";
   return undefined;
@@ -151,6 +153,29 @@ export async function getDocumentText(doc: PendingApprovalDocument): Promise<str
     }
   }
   return "";
+}
+
+export async function getDocumentImages(doc: PendingApprovalDocument): Promise<string[]> {
+  const localPath = doc.localPath?.trim();
+  if (!localPath) return [];
+
+  const candidates: string[] = [];
+  if (path.isAbsolute(localPath)) {
+    candidates.push(localPath);
+  } else {
+    candidates.push(resolveLocalPath(localPath));
+    candidates.push(path.join(__dirname, "..", "..", localPath));
+    candidates.push(path.join(__dirname, "..", localPath));
+  }
+
+  for (const p of candidates) {
+    try {
+      return await extractImagesFromPptx(p);
+    } catch {
+      // try next
+    }
+  }
+  return [];
 }
 
 export async function setDocumentState(
