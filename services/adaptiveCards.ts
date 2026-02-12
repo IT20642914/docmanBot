@@ -49,6 +49,39 @@ export function buildInfoCard(input: { title: string; message?: string }): any {
   };
 }
 
+export function buildNewDocumentNotificationCard(input: {
+  title: string;
+  documentNo?: string;
+  documentClass?: string;
+  documentRevision?: string;
+  fileName?: string;
+  docType?: string;
+}): any {
+  const metaParts = [
+    input.documentClass?.trim(),
+    input.documentNo?.trim(),
+    input.documentRevision?.trim(),
+  ].filter(Boolean);
+  const meta = metaParts.length ? metaParts.join(" - ") : undefined;
+
+  return {
+    $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+    type: "AdaptiveCard",
+    version: "1.5",
+    body: [
+      { type: "TextBlock", text: "New document to approve", weight: "Bolder", size: "Large" },
+      { type: "TextBlock", text: input.title, wrap: true, weight: "Bolder", spacing: "Small" },
+      ...(meta ? [{ type: "TextBlock", text: meta, wrap: true, spacing: "None", isSubtle: true }] : []),
+      ...(input.docType ? [{ type: "TextBlock", text: `Type: ${input.docType}`, wrap: true, spacing: "None", isSubtle: true }] : []),
+      ...(input.fileName ? [{ type: "TextBlock", text: `File: ${input.fileName}`, wrap: true, spacing: "Small", isSubtle: true }] : []),
+    ],
+    actions: [
+      { type: "Action.Submit", title: "View pending list", data: { action: "show_pending_approvals" } },
+      { type: "Action.Submit", title: "Close", data: { action: "dismiss_pending_approvals" } },
+    ],
+  };
+}
+
 export function buildUserChangeCard(input: {
   title?: string;
   summary: string;
@@ -310,6 +343,9 @@ export function buildDocSummaryAndQuestionCard(input: {
       kv("ID", d.id),
       kv("Title", d.Title || d.title || "-"),
       ...(d.docType ? [kv("Type", d.docType)] : []),
+      ...(d.DocumentNo ? [kv("Document No", d.DocumentNo)] : []),
+      ...(d.DocumentClass ? [kv("Document Class", d.DocumentClass)] : []),
+      ...(d.DocumentRevision ? [kv("Document Rev", d.DocumentRevision)] : []),
       ...(meta ? [kv("Metadata", meta)] : []),
       { type: "TextBlock", text: input.summary || "(No summary)", wrap: true, spacing: "Medium" },
       { type: "TextBlock", text: "Ask a question about this document:", weight: "Bolder", spacing: "Medium" },
@@ -359,6 +395,9 @@ export function buildDocAnswerCard(input: {
       { type: "TextBlock", text: "Answer from document", weight: "Bolder", size: "Large" },
       kv("Document", d.Title || d.title || d.id),
       ...(d.docType ? [kv("Type", d.docType)] : []),
+      ...(d.DocumentNo ? [kv("Document No", d.DocumentNo)] : []),
+      ...(d.DocumentClass ? [kv("Document Class", d.DocumentClass)] : []),
+      ...(d.DocumentRevision ? [kv("Document Rev", d.DocumentRevision)] : []),
       { type: "TextBlock", text: `Q: ${input.question}`, wrap: true, weight: "Bolder", spacing: "Medium" },
       { type: "TextBlock", text: input.answer || "(No answer)", wrap: true, spacing: "Small" },
       { type: "TextBlock", text: "Ask another question:", weight: "Bolder", spacing: "Medium" },

@@ -1,0 +1,52 @@
+{
+  "notifications": [
+    {
+      "id": "N-1770887824284",
+      "createdAt": "2026-02-12T09:17:04.284Z",
+      "target": {
+        "email": "avch@skyforce.no"
+      },
+      "doc": {
+        "id": "DOC-015",
+        "Title": "Project Timeline",
+        "DocumentNo": "DOC-009",
+        "DocumentClass": "PM",
+        "DocumentRevision": "A",
+        "OriginalFileName": "Project_Timeline_1077884 1.pptx",
+        "docType": "PPTX"
+      }
+    },
+    {
+      "id": "N-1770887803854",
+      "createdAt": "2026-02-12T09:16:43.854Z",
+      "target": {
+        "email": "avch@skyforce.no"
+      },
+      "doc": {
+        "id": "DOC-014",
+        "Title": "Project Timeline",
+        "DocumentNo": "DOC-009",
+        "DocumentClass": "PM",
+        "DocumentRevision": "A",
+        "OriginalFileName": "Project_Timeline_1077884 1.pptx",
+        "docType": "PPTX"
+      }
+    },
+    {
+      "id": "N-1770885432650",
+      "createdAt": "2026-02-12T08:37:12.650Z",
+      "target": {
+        "email": "avishka@skyforce.no"
+      },
+      "doc": {
+        "id": "DOC-013",
+        "Title": "Project Timeline",
+        "DocumentNo": "DOC-009",
+        "DocumentClass": "PM",
+        "DocumentRevision": "A",
+        "OriginalFileName": "Project_Timeline_1077884 1.pptx",
+        "docType": "PPTX"
+      }
+    }
+  ]
+}

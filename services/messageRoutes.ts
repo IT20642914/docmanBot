@@ -6,6 +6,7 @@ import { getFileNameFromActivity } from "./teamsActivityUtils";
 import {
   buildInfoCard,
   buildLoadingCard,
+  buildNewDocumentNotificationCard,
   buildDocAnswerCard,
   buildDocSummaryAndQuestionCard,
   buildDocumentInfoCard,
@@ -22,6 +23,9 @@ import {
   setDocumentState,
 } from "./documentStore";
 import { answerQuestionFromDocument, summarizeDocumentText } from "./azureOpenAi";
+import { drainNotificationsForUser } from "./pendingNotifications";
+import { getConversationRefByAadObjectId, upsertConversationRef } from "./conversationRegistry";
+import { getEmailForAadObjectId } from "./graphService";
 
 export function registerMessageRoutes(app: App, storage: IStorage<string, any>) {
   app.on("message", async (ctx: any) => {
@@ -40,6 +44,59 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         null;
       if (name && upn && !name.includes(upn)) return `${name} (${upn})`;
       return name ?? upn;
+    }
+
+    function getUserIdentity(): { aadObjectId?: string; email?: string } {
+      const aadObjectId =
+        (typeof activity?.from?.aadObjectId === "string" && activity.from.aadObjectId.trim()) || undefined;
+      const email =
+        (typeof activity?.from?.userPrincipalName === "string" && activity.from.userPrincipalName.trim()) ||
+        (typeof ctx?.userName === "string" && ctx.userName.includes("@") ? ctx.userName.trim() : "") ||
+        undefined;
+      return { aadObjectId, email: email ? email.toLowerCase() : undefined };
+    }
+
+    function isDebug(): boolean {
+      return String(process.env.DOCUMATE_DEBUG || "").trim() === "1";
+    }
+
+    // Always store conversation reference (works for normal messages + card submits)
+    const convId = activity?.conversation?.id;
+    if (typeof convId === "string" && convId.trim()) {
+      const ident = getUserIdentity();
+      await upsertConversationRef({
+        aadObjectId: ident.aadObjectId,
+        email: ident.email,
+        conversationId: convId.trim(),
+        serviceUrl: activity?.serviceUrl,
+        userLabel: getUserLabel() ?? undefined,
+      });
+
+      // If Teams didn't provide email, try Graph lookup (aadObjectId -> email) and store it.
+      if (!ident.email && ident.aadObjectId) {
+        void (async () => {
+          try {
+            const existing = await getConversationRefByAadObjectId(ident.aadObjectId!);
+            if (existing?.email) return;
+            const r = await getEmailForAadObjectId(ident.aadObjectId!);
+            if (!r?.email) {
+              if (isDebug()) console.warn("[graph] email lookup returned empty");
+              return;
+            }
+            await upsertConversationRef({
+              aadObjectId: ident.aadObjectId,
+              email: r.email,
+              conversationId: convId.trim(),
+              serviceUrl: activity?.serviceUrl,
+              userLabel: getUserLabel() ?? undefined,
+            });
+          } catch (e: any) {
+            if (isDebug()) console.warn("[graph] email lookup failed", String(e?.message ?? e));
+          }
+        })();
+      }
+    } else if (isDebug()) {
+      console.warn("[conversationRegistry] missing conversationId on activity");
     }
 
     async function sendTyping(): Promise<void> {
@@ -437,6 +494,7 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       if (welcomeKey && !alreadyWelcomed) {
         await storage.set(welcomeKey, true);
       }
+
       const docs = await getPendingApprovalDocuments();
       const userLabel = getUserLabel() ?? undefined;
       await ctx.send({
@@ -448,6 +506,29 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
           },
         ],
       });
+
+      // If any documents were added via API, notify the user.
+      const notes = await drainNotificationsForUser(getUserIdentity());
+      if (notes.length > 0) {
+        const n = notes[0];
+        const d = n.doc;
+        await ctx.send({
+          type: "message",
+          attachments: [
+            {
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: buildNewDocumentNotificationCard({
+                title: d.Title || d.OriginalFileName || d.id,
+                documentNo: d.DocumentNo,
+                documentClass: d.DocumentClass,
+                documentRevision: d.DocumentRevision,
+                fileName: d.OriginalFileName,
+                docType: d.docType,
+              }),
+            },
+          ],
+        });
+      }
       return;
     }
 
