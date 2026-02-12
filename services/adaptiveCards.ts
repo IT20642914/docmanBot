@@ -28,6 +28,27 @@ export function buildLoadingCard(input: { title?: string; message?: string }): a
   };
 }
 
+export function buildInfoCard(input: { title: string; message?: string }): any {
+  return {
+    $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+    type: "AdaptiveCard",
+    version: "1.5",
+    body: [
+      { type: "TextBlock", text: input.title, weight: "Bolder", size: "Large" },
+      ...(input.message
+        ? [
+            {
+              type: "TextBlock",
+              text: input.message,
+              wrap: true,
+              spacing: "Small",
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 export function buildUserChangeCard(input: {
   title?: string;
   summary: string;
@@ -117,9 +138,11 @@ export function buildDocumentInfoCard(input: {
 
 export function buildPendingApprovalsCard(input: {
   docs: PendingApprovalDocument[];
+  userLabel?: string;
 }): any {
   const docs = input.docs ?? [];
   const count = docs.length;
+  const user = input.userLabel?.trim();
 
   const listItems =
     count === 0
@@ -136,6 +159,16 @@ export function buildPendingApprovalsCard(input: {
     type: "AdaptiveCard",
     version: "1.5",
     body: [
+      ...(user
+        ? [
+            {
+              type: "TextBlock",
+              text: `Hi ${user}`,
+              wrap: true,
+              spacing: "None",
+            },
+          ]
+        : []),
       { type: "TextBlock", text: "Documents pending approval", weight: "Bolder", size: "Large" },
       { type: "TextBlock", text: `Pending: ${count}`, wrap: true, spacing: "Small" },
       { type: "TextBlock", text: "Do you want to see the list?", wrap: true, spacing: "Medium" },

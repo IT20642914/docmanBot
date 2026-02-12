@@ -37,7 +37,7 @@
       "localPath": "data/docs/1033608-A1.docx",
       "docType": "DOCX",
       "source": "Local",
-      "state": "pendingApproval",
+      "state": "approved",
       "submittedBy": "Local Upload",
       "submittedAt": "2026-02-10T12:00:00Z"
     },
@@ -59,7 +59,7 @@
       "localPath": "data/docs/1033455.xlsx",
       "docType": "XLSX",
       "source": "Local",
-      "state": "pendingApproval",
+      "state": "approved",
       "submittedBy": "Local Upload",
       "submittedAt": "2026-02-10T12:00:00Z"
     },
@@ -70,7 +70,7 @@
       "localPath": "data/docs/Project_Timeline_1077884 1.pptx",
       "docType": "PPTX",
       "source": "Local",
-      "state": "pendingApproval",
+      "state": "rejected",
       "submittedBy": "Local Upload",
       "submittedAt": "2026-02-10T12:00:00Z"
     }

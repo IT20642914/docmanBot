@@ -4,6 +4,7 @@ import type { IStorage } from "@microsoft/teams.common";
 import { identifyDocumentType } from "./documentIdentifier";
 import { getFileNameFromActivity } from "./teamsActivityUtils";
 import {
+  buildInfoCard,
   buildLoadingCard,
   buildDocAnswerCard,
   buildDocSummaryAndQuestionCard,
@@ -26,6 +27,21 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
   app.on("message", async (ctx: any) => {
     const activity = ctx?.activity;
 
+    function getUserLabel(): string | null {
+      const name =
+        (typeof activity?.from?.name === "string" && activity.from.name.trim()) ||
+        (typeof ctx?.userName === "string" && ctx.userName.trim()) ||
+        null;
+      // Email/UPN is not reliably available in normal message activities without Graph.
+      const upn =
+        (typeof activity?.from?.userPrincipalName === "string" && activity.from.userPrincipalName.trim()) ||
+        (typeof activity?.channelData?.tenant?.userPrincipalName === "string" &&
+          activity.channelData.tenant.userPrincipalName.trim()) ||
+        null;
+      if (name && upn && !name.includes(upn)) return `${name} (${upn})`;
+      return name ?? upn;
+    }
+
     async function sendTyping(): Promise<void> {
       // Teams shows a "typing" indicator; safe no-op if not supported.
       await ctx.send({ type: "typing" }).catch(() => {});
@@ -47,37 +63,124 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       );
     }
 
+    function getConversationId(): string | null {
+      const id = activity?.conversation?.id;
+      return typeof id === "string" && id.trim() ? id.trim() : null;
+    }
+
+    async function tryUpdateActivity(activityId: string, next: any): Promise<boolean> {
+      const conversationId = getConversationId();
+      if (!conversationId) return false;
+      const updateFn = ctx?.api?.conversations?.activities?.(conversationId)?.update;
+      if (typeof updateFn !== "function") return false;
+      try {
+        await updateFn(activityId, next);
+        return true;
+      } catch (e) {
+        console.warn("activities.update failed", { activityId, e });
+        return false;
+      }
+    }
+
+    async function tryDeleteActivity(activityId: string): Promise<void> {
+      const conversationId = getConversationId();
+      if (!conversationId) return;
+      const delFn = ctx?.api?.conversations?.activities?.(conversationId)?.delete;
+      if (typeof delFn !== "function") return;
+      try {
+        await delFn(activityId);
+      } catch (e) {
+        console.warn("activities.delete failed", { activityId, e });
+      }
+    }
+
     async function replaceOrSendFinal(placeholderId: string | null, finalActivity: any): Promise<void> {
       // Prefer updating the placeholder message if available; otherwise just send.
-      if (placeholderId && typeof ctx?.updateActivity === "function") {
-        try {
-          await ctx.updateActivity({ id: placeholderId, ...finalActivity });
-          return;
-        } catch {
-          // fall through
-        }
+      if (placeholderId) {
+        const updated = await tryUpdateActivity(placeholderId, finalActivity);
+        if (updated) return;
       }
 
       await ctx.send(finalActivity);
 
-      // If we couldn't update, try deleting the placeholder to reduce clutter.
-      if (placeholderId && typeof ctx?.deleteActivity === "function") {
-        await ctx.deleteActivity(placeholderId).catch(() => {});
+      // If we couldn't update, try deleting the placeholder to reduce clutter / disable buttons.
+      if (placeholderId) await tryDeleteActivity(placeholderId);
+    }
+
+    async function runWithLoading(params: {
+      targetId: string | null;
+      loadingTitle: string;
+      loadingMessage: string;
+      work: () => Promise<any>;
+    }): Promise<void> {
+      const stopTyping = startTypingLoop();
+
+      const loadingActivity = {
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: buildLoadingCard({ title: params.loadingTitle, message: params.loadingMessage }),
+          },
+        ],
+      };
+
+      let placeholderId: string | null = params.targetId;
+      let didUpdate = false;
+      if (params.targetId) {
+        didUpdate = await tryUpdateActivity(params.targetId, loadingActivity);
       }
+
+      if (!didUpdate) {
+        // If we couldn't update the original card, try deleting it to avoid stale buttons.
+        if (params.targetId) await tryDeleteActivity(params.targetId);
+        const sent = await ctx.send(loadingActivity).catch(() => null);
+        placeholderId = getSentActivityId(sent);
+      }
+
+      let finalActivity: any;
+      try {
+        finalActivity = await params.work();
+      } catch (e: any) {
+        finalActivity = {
+          type: "message",
+          attachments: [
+            {
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: buildInfoCard({
+                title: "Something went wrong",
+                message: String(e?.message ?? e ?? "Unknown error"),
+              }),
+            },
+          ],
+        };
+      } finally {
+        stopTyping();
+      }
+
+      await replaceOrSendFinal(placeholderId, finalActivity);
     }
 
     // Handle Adaptive Card Action.Submit callbacks
     const submittedAction = activity?.value?.action;
     if (submittedAction === "show_pending_approvals") {
-      const docs = await getPendingApprovalDocuments();
-      await ctx.send({
-        type: "message",
-        attachments: [
-          {
-            contentType: "application/vnd.microsoft.card.adaptive",
-            content: buildPendingApprovalsListCard({ docs }),
-          },
-        ],
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Loading documents…",
+        loadingMessage: "Fetching pending approvals list.",
+        work: async () => {
+          const docs = await getPendingApprovalDocuments();
+          return {
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: buildPendingApprovalsListCard({ docs }),
+              },
+            ],
+          };
+        },
       });
       return;
     }
@@ -89,42 +192,41 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         return;
       }
 
-      const stopTyping = startTypingLoop();
-      const loadingSent = await ctx
-        .send({
-          type: "message",
-          attachments: [
-            {
-              contentType: "application/vnd.microsoft.card.adaptive",
-              content: buildLoadingCard({
-                title: "Generating summary…",
-                message: `${doc.title || doc.fileName || doc.id}`,
-              }),
-            },
-          ],
-        })
-        .catch(() => null);
-      const placeholderId = getSentActivityId(loadingSent);
-
-      const docText = await getDocumentText(doc);
-      if (!docText) {
-        stopTyping();
-        await ctx.send("I couldn't read the local document text for this item.");
-        return;
-      }
-      const images = await getDocumentImages(doc);
-      const summary = await summarizeDocumentText(docText, images).catch((e: any) => {
-        return `Failed to summarize: ${String(e?.message ?? e)}`;
-      });
-      stopTyping();
-      await replaceOrSendFinal(placeholderId, {
-        type: "message",
-        attachments: [
-          {
-            contentType: "application/vnd.microsoft.card.adaptive",
-            content: buildDocSummaryAndQuestionCard({ doc, summary }),
-          },
-        ],
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Generating summary…",
+        loadingMessage: `${doc.title || doc.fileName || doc.id}`,
+        work: async () => {
+          const docText = await getDocumentText(doc);
+          if (!docText) {
+            return {
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: buildInfoCard({
+                    title: "Can’t read document",
+                    message: "I couldn't read the local document content for this item.",
+                  }),
+                },
+              ],
+            };
+          }
+          const images = await getDocumentImages(doc);
+          const summary = await summarizeDocumentText(docText, images).catch((e: any) => {
+            return `Failed to summarize: ${String(e?.message ?? e)}`;
+          });
+          return {
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: buildDocSummaryAndQuestionCard({ doc, summary }),
+              },
+            ],
+          };
+        },
       });
       return;
     }
@@ -141,51 +243,81 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         await ctx.send("I couldn’t find that document. Please refresh the list.");
         return;
       }
-
-      const stopTyping = startTypingLoop();
-      const loadingSent = await ctx
-        .send({
-          type: "message",
-          attachments: [
-            {
-              contentType: "application/vnd.microsoft.card.adaptive",
-              content: buildLoadingCard({ title: "Answering…", message: "Reading the document and generating an answer." }),
-            },
-          ],
-        })
-        .catch(() => null);
-      const placeholderId = getSentActivityId(loadingSent);
-
-      const docText = await getDocumentText(doc);
-      if (!docText) {
-        stopTyping();
-        await ctx.send("I couldn't read the local document text for this item.");
-        return;
-      }
-      const images = await getDocumentImages(doc);
-
-      const answer = await answerQuestionFromDocument(docText, question, images).catch((e: any) => {
-        return `Failed to answer: ${String(e?.message ?? e)}`;
-      });
-      stopTyping();
-      await replaceOrSendFinal(placeholderId, {
-        type: "message",
-        attachments: [
-          {
-            contentType: "application/vnd.microsoft.card.adaptive",
-            content: buildDocAnswerCard({ doc, question, answer }),
-          },
-        ],
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Answering…",
+        loadingMessage: "Reading the document and generating an answer.",
+        work: async () => {
+          const docText = await getDocumentText(doc);
+          if (!docText) {
+            return {
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: buildInfoCard({
+                    title: "Can’t read document",
+                    message: "I couldn't read the local document content for this item.",
+                  }),
+                },
+              ],
+            };
+          }
+          const images = await getDocumentImages(doc);
+          const answer = await answerQuestionFromDocument(docText, question, images).catch((e: any) => {
+            return `Failed to answer: ${String(e?.message ?? e)}`;
+          });
+          return {
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: buildDocAnswerCard({ doc, question, answer }),
+              },
+            ],
+          };
+        },
       });
       return;
     }
     if (submittedAction === "approve_doc") {
       const docId = String(activity?.value?.docId ?? "").trim();
-      const ok = await setDocumentState(docId, "approved");
-      if (!ok) {
-        await ctx.send("I couldn’t update the document state.");
-        return;
-      }
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      const doc = await getPendingApprovalDocumentById(docId);
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Approving…",
+        loadingMessage: `Updating ${docId}`,
+        work: async () => {
+          const ok = await setDocumentState(docId, "approved");
+          if (!ok) {
+            return {
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: buildInfoCard({ title: "Couldn’t approve", message: "Failed to update document state." }),
+                },
+              ],
+            };
+          }
+          return {
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: buildInfoCard({
+                  title: "Approved",
+                  message: `${doc?.title || doc?.fileName || docId} was approved. I’ve updated the status.`,
+                }),
+              },
+            ],
+          };
+        },
+      });
+
+      // Then show the refreshed pending list again
       const docs = await getPendingApprovalDocuments();
       await ctx.send({
         type: "message",
@@ -200,11 +332,41 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
     }
     if (submittedAction === "reject_doc") {
       const docId = String(activity?.value?.docId ?? "").trim();
-      const ok = await setDocumentState(docId, "rejected");
-      if (!ok) {
-        await ctx.send("I couldn’t update the document state.");
-        return;
-      }
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      const doc = await getPendingApprovalDocumentById(docId);
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Rejecting…",
+        loadingMessage: `Updating ${docId}`,
+        work: async () => {
+          const ok = await setDocumentState(docId, "rejected");
+          if (!ok) {
+            return {
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: buildInfoCard({ title: "Couldn’t reject", message: "Failed to update document state." }),
+                },
+              ],
+            };
+          }
+          return {
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: buildInfoCard({
+                  title: "Rejected",
+                  message: `${doc?.title || doc?.fileName || docId} was rejected. I’ve updated the status.`,
+                }),
+              },
+            ],
+          };
+        },
+      });
+
+      // Then show the refreshed pending list again
       const docs = await getPendingApprovalDocuments();
       await ctx.send({
         type: "message",
@@ -218,7 +380,25 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       return;
     }
     if (submittedAction === "dismiss_pending_approvals") {
-      await ctx.send("Ok.");
+      const targetId = typeof activity?.replyToId === "string" ? activity.replyToId : null;
+      const user = getUserLabel();
+      await runWithLoading({
+        targetId,
+        loadingTitle: "Closing…",
+        loadingMessage: "Got it.",
+        work: async () => ({
+          type: "message",
+          attachments: [
+            {
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: buildInfoCard({
+                title: user ? `Thanks, ${user}` : "Thanks",
+                message: 'If you need anything else, just say "hi".',
+              }),
+            },
+          ],
+        }),
+      });
       return;
     }
     if (submittedAction === "ack_change") {
@@ -258,12 +438,13 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         await storage.set(welcomeKey, true);
       }
       const docs = await getPendingApprovalDocuments();
+      const userLabel = getUserLabel() ?? undefined;
       await ctx.send({
         type: "message",
         attachments: [
           {
             contentType: "application/vnd.microsoft.card.adaptive",
-            content: buildPendingApprovalsCard({ docs }),
+            content: buildPendingApprovalsCard({ docs, userLabel }),
           },
         ],
       });

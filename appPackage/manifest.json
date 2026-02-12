@@ -10,16 +10,16 @@
         "termsOfUseUrl": "https://www.example.com/termofuse"
     },
     "icons": {
-        "color": "color.png",
+        "color": "btlogo.png",
         "outline": "outline.png"
     },
     "name": {
-        "short": "docmanBot${{APP_NAME_SUFFIX}}",
-        "full": "full name for docmanBot"
+        "short": "DocuMate${{APP_NAME_SUFFIX}}",
+        "full": "DocuMate"
     },
     "description": {
-        "short": "short description for docmanBot",
-        "full": "full description for docmanBot"
+        "short": "short description for DocuMate",
+        "full": "full description for DocuMate"
     },
     "accentColor": "#FFFFFF",
     "bots": [
