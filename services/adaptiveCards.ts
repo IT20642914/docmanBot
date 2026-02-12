@@ -11,6 +11,23 @@ function kv(label: string, value: string): any {
   };
 }
 
+export function buildLoadingCard(input: { title?: string; message?: string }): any {
+  return {
+    $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+    type: "AdaptiveCard",
+    version: "1.5",
+    body: [
+      { type: "TextBlock", text: input.title ?? "Working…", weight: "Bolder", size: "Large" },
+      {
+        type: "TextBlock",
+        text: input.message ?? "Please wait while I process your request.",
+        wrap: true,
+        spacing: "Small",
+      },
+    ],
+  };
+}
+
 export function buildUserChangeCard(input: {
   title?: string;
   summary: string;

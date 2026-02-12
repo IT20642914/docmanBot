@@ -11,7 +11,7 @@
       "docSheet": "1",
       "docRev": "A1",
       "source": "IFS",
-      "state": "pendingApproval",
+      "state": "approved",
       "submittedBy": "John Doe",
       "submittedAt": "2026-02-10T09:12:00Z"
     },
@@ -26,7 +26,7 @@
       "docSheet": "2",
       "docRev": "B3",
       "source": "IFS",
-      "state": "pendingApproval",
+      "state": "rejected",
       "submittedBy": "Jane Smith",
       "submittedAt": "2026-02-10T10:05:00Z"
     },

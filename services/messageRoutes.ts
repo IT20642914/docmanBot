@@ -4,6 +4,7 @@ import type { IStorage } from "@microsoft/teams.common";
 import { identifyDocumentType } from "./documentIdentifier";
 import { getFileNameFromActivity } from "./teamsActivityUtils";
 import {
+  buildLoadingCard,
   buildDocAnswerCard,
   buildDocSummaryAndQuestionCard,
   buildDocumentInfoCard,
@@ -24,6 +25,46 @@ import { answerQuestionFromDocument, summarizeDocumentText } from "./azureOpenAi
 export function registerMessageRoutes(app: App, storage: IStorage<string, any>) {
   app.on("message", async (ctx: any) => {
     const activity = ctx?.activity;
+
+    async function sendTyping(): Promise<void> {
+      // Teams shows a "typing" indicator; safe no-op if not supported.
+      await ctx.send({ type: "typing" }).catch(() => {});
+    }
+
+    function startTypingLoop(): () => void {
+      void sendTyping();
+      const t = setInterval(() => {
+        void sendTyping();
+      }, 3000);
+      return () => clearInterval(t);
+    }
+
+    function getSentActivityId(sent: any): string | null {
+      return (
+        (typeof sent?.id === "string" && sent.id) ||
+        (typeof sent?.activityId === "string" && sent.activityId) ||
+        null
+      );
+    }
+
+    async function replaceOrSendFinal(placeholderId: string | null, finalActivity: any): Promise<void> {
+      // Prefer updating the placeholder message if available; otherwise just send.
+      if (placeholderId && typeof ctx?.updateActivity === "function") {
+        try {
+          await ctx.updateActivity({ id: placeholderId, ...finalActivity });
+          return;
+        } catch {
+          // fall through
+        }
+      }
+
+      await ctx.send(finalActivity);
+
+      // If we couldn't update, try deleting the placeholder to reduce clutter.
+      if (placeholderId && typeof ctx?.deleteActivity === "function") {
+        await ctx.deleteActivity(placeholderId).catch(() => {});
+      }
+    }
 
     // Handle Adaptive Card Action.Submit callbacks
     const submittedAction = activity?.value?.action;
@@ -48,8 +89,26 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         return;
       }
 
+      const stopTyping = startTypingLoop();
+      const loadingSent = await ctx
+        .send({
+          type: "message",
+          attachments: [
+            {
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: buildLoadingCard({
+                title: "Generating summary…",
+                message: `${doc.title || doc.fileName || doc.id}`,
+              }),
+            },
+          ],
+        })
+        .catch(() => null);
+      const placeholderId = getSentActivityId(loadingSent);
+
       const docText = await getDocumentText(doc);
       if (!docText) {
+        stopTyping();
         await ctx.send("I couldn't read the local document text for this item.");
         return;
       }
@@ -57,7 +116,8 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       const summary = await summarizeDocumentText(docText, images).catch((e: any) => {
         return `Failed to summarize: ${String(e?.message ?? e)}`;
       });
-      await ctx.send({
+      stopTyping();
+      await replaceOrSendFinal(placeholderId, {
         type: "message",
         attachments: [
           {
@@ -81,8 +141,24 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
         await ctx.send("I couldn’t find that document. Please refresh the list.");
         return;
       }
+
+      const stopTyping = startTypingLoop();
+      const loadingSent = await ctx
+        .send({
+          type: "message",
+          attachments: [
+            {
+              contentType: "application/vnd.microsoft.card.adaptive",
+              content: buildLoadingCard({ title: "Answering…", message: "Reading the document and generating an answer." }),
+            },
+          ],
+        })
+        .catch(() => null);
+      const placeholderId = getSentActivityId(loadingSent);
+
       const docText = await getDocumentText(doc);
       if (!docText) {
+        stopTyping();
         await ctx.send("I couldn't read the local document text for this item.");
         return;
       }
@@ -91,8 +167,8 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       const answer = await answerQuestionFromDocument(docText, question, images).catch((e: any) => {
         return `Failed to answer: ${String(e?.message ?? e)}`;
       });
-
-      await ctx.send({
+      stopTyping();
+      await replaceOrSendFinal(placeholderId, {
         type: "message",
         attachments: [
           {
