@@ -144,16 +144,6 @@ export function buildPendingApprovalsCard(input: {
   const count = docs.length;
   const user = input.userLabel?.trim();
 
-  const listItems =
-    count === 0
-      ? [{ type: "TextBlock", text: "No documents pending approval.", wrap: true }]
-      : docs.slice(0, 10).map((d) => ({
-          type: "TextBlock",
-          text: `• ${d.title || d.fileName || d.id}`,
-          wrap: true,
-          spacing: "Small",
-        }));
-
   return {
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
     type: "AdaptiveCard",
@@ -171,8 +161,9 @@ export function buildPendingApprovalsCard(input: {
         : []),
       { type: "TextBlock", text: "Documents pending approval", weight: "Bolder", size: "Large" },
       { type: "TextBlock", text: `Pending: ${count}`, wrap: true, spacing: "Small" },
-      { type: "TextBlock", text: "Do you want to see the list?", wrap: true, spacing: "Medium" },
-      { type: "Container", items: listItems, spacing: "Medium" },
+      ...(count === 0
+        ? [{ type: "TextBlock", text: "No documents pending approval.", wrap: true, spacing: "Medium" }]
+        : [{ type: "TextBlock", text: "Do you want to see the list?", wrap: true, spacing: "Medium" }]),
     ],
     actions:
       count === 0
@@ -206,8 +197,8 @@ export function buildPendingApprovalsListCard(input: { docs: PendingApprovalDocu
       ? [{ type: "TextBlock", text: "No documents pending approval.", wrap: true }]
       : docs.slice(0, 10).map((d) => {
           const meta =
-            d.docClass && d.docNo && d.docSheet && d.docRev
-              ? `${d.docClass} - ${d.docNo} - ${d.docSheet} - ${d.docRev}`
+            d.DocumentClass && d.DocumentNo && d.DocumentSheet && d.DocumentRevision
+              ? `${d.DocumentClass} - ${d.DocumentNo} - ${d.DocumentSheet} - ${d.DocumentRevision}`
               : undefined;
           const typeLine = d.docType ? `Type: ${d.docType}` : undefined;
 
@@ -216,13 +207,13 @@ export function buildPendingApprovalsListCard(input: { docs: PendingApprovalDocu
             style: "emphasis",
             spacing: "Small",
             items: [
-              { type: "TextBlock", text: d.title || d.fileName || d.id, wrap: true, weight: "Bolder" },
+              { type: "TextBlock", text: d.Title || d.title || d.OriginalFileName || d.fileName || d.id, wrap: true, weight: "Bolder" },
               ...(typeLine
                 ? [{ type: "TextBlock", text: typeLine, wrap: true, isSubtle: true, spacing: "None" }]
                 : []),
               ...(meta ? [{ type: "TextBlock", text: meta, wrap: true, isSubtle: true, spacing: "None" }] : []),
-              ...(d.submittedBy
-                ? [{ type: "TextBlock", text: `Submitted by: ${d.submittedBy}`, wrap: true, isSubtle: true, spacing: "None" }]
+              ...(d.ResponsiblePerson
+                ? [{ type: "TextBlock", text: `Responsible: ${d.ResponsiblePerson}`, wrap: true, isSubtle: true, spacing: "None" }]
                 : []),
             ],
             selectAction: {
@@ -260,7 +251,9 @@ export function buildPendingApprovalsListCard(input: { docs: PendingApprovalDocu
 export function buildPendingApprovalDetailsCard(input: { doc: PendingApprovalDocument }): any {
   const d = input.doc;
   const meta =
-    d.docClass && d.docNo && d.docSheet && d.docRev ? `${d.docClass} - ${d.docNo} - ${d.docSheet} - ${d.docRev}` : null;
+    d.DocumentClass && d.DocumentNo && d.DocumentSheet && d.DocumentRevision
+      ? `${d.DocumentClass} - ${d.DocumentNo} - ${d.DocumentSheet} - ${d.DocumentRevision}`
+      : null;
 
   return {
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -269,12 +262,14 @@ export function buildPendingApprovalDetailsCard(input: { doc: PendingApprovalDoc
     body: [
       { type: "TextBlock", text: "Document details", weight: "Bolder", size: "Large" },
       kv("ID", d.id),
-      kv("Title", d.title || "-"),
-      kv("File", d.fileName || "-"),
+      kv("Title", d.Title || d.title || "-"),
+      kv("Original file", d.OriginalFileName || d.fileName || "-"),
       ...(meta ? [kv("Metadata", meta)] : []),
-      ...(d.source ? [kv("Source", d.source)] : []),
-      ...(d.submittedBy ? [kv("Submitted by", d.submittedBy)] : []),
-      ...(d.submittedAt ? [kv("Submitted at", d.submittedAt)] : []),
+      ...(d.DocumentStatus ? [kv("Doc status", d.DocumentStatus)] : []),
+      ...(d.FileStatus ? [kv("File status", d.FileStatus)] : []),
+      ...(d.Language ? [kv("Language", d.Language)] : []),
+      ...(d.ResponsiblePerson ? [kv("Responsible", d.ResponsiblePerson)] : []),
+      ...(d.Modified ? [kv("Modified", d.Modified)] : []),
     ],
     actions: [
       {
@@ -302,7 +297,9 @@ export function buildDocSummaryAndQuestionCard(input: {
 }): any {
   const d = input.doc;
   const meta =
-    d.docClass && d.docNo && d.docSheet && d.docRev ? `${d.docClass} - ${d.docNo} - ${d.docSheet} - ${d.docRev}` : null;
+    d.DocumentClass && d.DocumentNo && d.DocumentSheet && d.DocumentRevision
+      ? `${d.DocumentClass} - ${d.DocumentNo} - ${d.DocumentSheet} - ${d.DocumentRevision}`
+      : null;
 
   return {
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -311,7 +308,7 @@ export function buildDocSummaryAndQuestionCard(input: {
     body: [
       { type: "TextBlock", text: "Document summary", weight: "Bolder", size: "Large" },
       kv("ID", d.id),
-      kv("Title", d.title || "-"),
+      kv("Title", d.Title || d.title || "-"),
       ...(d.docType ? [kv("Type", d.docType)] : []),
       ...(meta ? [kv("Metadata", meta)] : []),
       { type: "TextBlock", text: input.summary || "(No summary)", wrap: true, spacing: "Medium" },
@@ -360,7 +357,7 @@ export function buildDocAnswerCard(input: {
     version: "1.5",
     body: [
       { type: "TextBlock", text: "Answer from document", weight: "Bolder", size: "Large" },
-      kv("Document", d.title || d.id),
+      kv("Document", d.Title || d.title || d.id),
       ...(d.docType ? [kv("Type", d.docType)] : []),
       { type: "TextBlock", text: `Q: ${input.question}`, wrap: true, weight: "Bolder", spacing: "Medium" },
       { type: "TextBlock", text: input.answer || "(No answer)", wrap: true, spacing: "Small" },

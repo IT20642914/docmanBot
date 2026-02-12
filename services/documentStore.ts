@@ -2,34 +2,67 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { extractImagesFromPptx, extractTextFromFile } from "./documentTextExtractor";
 
-export interface PendingApprovalDocument {
+export type DocumentState = "pendingApproval" | "approved" | "rejected" | "pendigApprovel";
+
+/**
+ * Document record stored in `data/approvalDocuments.json`.
+ *
+ * Supports both:
+ * - New metadata shape (Title, DocumentNo, DocumentClass, ...)
+ * - Legacy shape (title, docNo, docClass, ...)
+ */
+export interface ApprovalDocument {
   id: string;
-  title: string;
-  fileName: string;
+  /** Workflow state */
+  state?: DocumentState;
+
   /** Relative path (recommended) or absolute path to local text content */
   localPath?: string;
   /** Document/file type, e.g. PDF, DOCX, XLSX, XLSB, TXT */
   docType?: string;
+
+  // --- New metadata fields (requested) ---
+  Title?: string;
+  DocumentNo?: string;
+  DocumentClass?: string;
+  Format?: string;
+  DocumentSheet?: string;
+  DocumentRevision?: string;
+  OriginalFileType?: string;
+  DocumentStatus?: string;
+  FileStatus?: string;
+  Language?: string;
+  ResponsiblePerson?: string;
+  ModifiedBy?: string;
+  CreatedBy?: string;
+  OriginalCreator?: string;
+  DateCreated?: string;
+  Modified?: string;
+  CheckedOutBy?: string;
+  DocumentType?: string;
+  OriginalFileName?: string;
+
+  // --- Legacy fields (kept for backward compatibility) ---
+  title?: string;
+  fileName?: string;
   docClass?: string;
   docNo?: string;
   docSheet?: string;
   docRev?: string;
   source?: string;
-  /** Workflow state */
-  state?: "pendingApproval" | "approved" | "rejected" | "pendigApprovel";
   submittedBy?: string;
   submittedAt?: string;
 }
 
 interface ApprovalDocumentsJson {
   // new format
-  documents?: PendingApprovalDocument[];
+  documents?: ApprovalDocument[];
   // legacy format
-  pending?: PendingApprovalDocument[];
+  pending?: ApprovalDocument[];
 }
 
-function inferDocType(doc: PendingApprovalDocument): string | undefined {
-  const name = String(doc.localPath || doc.fileName || "").toLowerCase();
+function inferDocType(doc: ApprovalDocument): string | undefined {
+  const name = String(doc.localPath || doc.OriginalFileName || doc.fileName || "").toLowerCase();
   if (name.endsWith(".pdf")) return "PDF";
   if (name.endsWith(".docx")) return "DOCX";
   if (name.endsWith(".xlsx")) return "XLSX";
@@ -40,6 +73,34 @@ function inferDocType(doc: PendingApprovalDocument): string | undefined {
   if (name.endsWith(".txt")) return "TXT";
   if (name.endsWith(".md")) return "MD";
   return undefined;
+}
+
+function normalizeDoc(doc: ApprovalDocument): ApprovalDocument {
+  const docType = doc.docType ?? inferDocType(doc);
+
+  // Carry legacy values into the new fields if missing
+  const Title = doc.Title ?? doc.title ?? doc.OriginalFileName ?? doc.fileName ?? doc.id;
+  const DocumentNo = doc.DocumentNo ?? doc.docNo;
+  const DocumentClass = doc.DocumentClass ?? doc.docClass;
+  const DocumentSheet = doc.DocumentSheet ?? doc.docSheet;
+  const DocumentRevision = doc.DocumentRevision ?? doc.docRev;
+  const OriginalFileName = doc.OriginalFileName ?? doc.fileName;
+  const OriginalFileType = doc.OriginalFileType ?? docType;
+
+  const state = doc.state ?? "pendingApproval";
+
+  return {
+    ...doc,
+    docType,
+    state,
+    Title,
+    DocumentNo,
+    DocumentClass,
+    DocumentSheet,
+    DocumentRevision,
+    OriginalFileName,
+    OriginalFileType,
+  };
 }
 
 function getCandidatePaths(): string[] {
@@ -86,16 +147,11 @@ export async function getAllDocuments(): Promise<PendingApprovalDocument[]> {
       const parsed = JSON.parse(raw) as ApprovalDocumentsJson;
       if (!parsed) return [];
 
-      if (Array.isArray(parsed.documents))
-        return parsed.documents.map((d) => ({ ...d, docType: d.docType ?? inferDocType(d) }));
+      if (Array.isArray(parsed.documents)) return parsed.documents.map(normalizeDoc);
 
       // Legacy: "pending" array -> convert to documents with state pendingApproval
       if (Array.isArray(parsed.pending)) {
-        return parsed.pending.map((d) => ({
-          ...d,
-          state: d.state ?? "pendingApproval",
-          docType: d.docType ?? inferDocType(d),
-        }));
+        return parsed.pending.map(normalizeDoc);
       }
       return [];
     } catch (err) {
@@ -129,7 +185,7 @@ function resolveLocalPath(p: string): string {
   return path.join(process.cwd(), p);
 }
 
-export async function getDocumentText(doc: PendingApprovalDocument): Promise<string> {
+export async function getDocumentText(doc: ApprovalDocument): Promise<string> {
   const localPath = doc.localPath?.trim();
   if (!localPath) return "";
 
@@ -200,4 +256,7 @@ export async function setDocumentState(
     return false;
   }
 }
+
+// Backward compatible exported name used across the codebase.
+export type PendingApprovalDocument = ApprovalDocument;
 

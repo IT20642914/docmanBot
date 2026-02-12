@@ -196,7 +196,7 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
       await runWithLoading({
         targetId,
         loadingTitle: "Generating summary…",
-        loadingMessage: `${doc.title || doc.fileName || doc.id}`,
+        loadingMessage: `${doc.Title || doc.title || doc.OriginalFileName || doc.fileName || doc.id}`,
         work: async () => {
           const docText = await getDocumentText(doc);
           if (!docText) {
@@ -309,7 +309,7 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
                 contentType: "application/vnd.microsoft.card.adaptive",
                 content: buildInfoCard({
                   title: "Approved",
-                  message: `${doc?.title || doc?.fileName || docId} was approved. I’ve updated the status.`,
+                  message: `${doc?.Title || doc?.title || doc?.OriginalFileName || doc?.fileName || docId} was approved. I’ve updated the status.`,
                 }),
               },
             ],
@@ -358,7 +358,7 @@ export function registerMessageRoutes(app: App, storage: IStorage<string, any>) 
                 contentType: "application/vnd.microsoft.card.adaptive",
                 content: buildInfoCard({
                   title: "Rejected",
-                  message: `${doc?.title || doc?.fileName || docId} was rejected. I’ve updated the status.`,
+                  message: `${doc?.Title || doc?.title || doc?.OriginalFileName || doc?.fileName || docId} was rejected. I’ve updated the status.`,
                 }),
               },
             ],
